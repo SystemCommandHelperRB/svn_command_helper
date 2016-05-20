@@ -55,6 +55,20 @@ module SvnCommandHelper
         list_files(uri, true)
       end
 
+      # check svn uri exists or not
+      # @param [uri string like] uri target uri
+      # @return [Boolean] true if exists
+      def exist?(uri)
+        list(File.dirname(uri)).find{|_file| File.fnmatch(@file, _file.sub(/\/$/, ''))}
+      end
+
+      # check svn uri file exists or not
+      # @param [uri string like] uri target uri
+      # @return [Boolean] true if exists
+      def exist_file?(uri)
+        list_files(File.dirname(uri)).find{|_file| File.fnmatch(@file, _file)}
+      end
+
       # svn update
       # @param [path string like] path target path
       # @param [depth] depth --set-depth
@@ -226,13 +240,13 @@ module SvnCommandHelper
     # from uri exists?
     # @return [Boolean]
     def from_exist?
-      Svn.list_files(@from_base).find{|_file| File.fnmatch(@file, _file)}
+      Svn.exist_file?(from)
     end
 
     # to uri exists?
     # @return [Boolean]
     def to_exist?
-      Svn.list_files(@to_base).find{|_file| File.fnmatch(@file, _file)}
+      Svn.exist_file?(to)
     end
 
     # relative from base path from given base uri
