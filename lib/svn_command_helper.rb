@@ -138,7 +138,7 @@ module SvnCommandHelper
         end
       end
 
-      # copy multi transactionS
+      # copy multi transactions
       # @param [Array<SvnFileCopyTransaction>] transactions from and to info list
       # @param [String] message commit message
       def copy_multi(transactions, message)
