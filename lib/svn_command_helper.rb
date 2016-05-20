@@ -59,14 +59,16 @@ module SvnCommandHelper
       # @param [uri string like] uri target uri
       # @return [Boolean] true if exists
       def exist?(uri)
-        list(File.dirname(uri)).find{|_file| File.fnmatch(@file, _file.sub(/\/$/, ''))}
+        basename = File.basename(uri)
+        list(File.dirname(uri)).find{|_basename| File.fnmatch(basename, _basename.sub(/\/$/, ''))}
       end
 
       # check svn uri file exists or not
       # @param [uri string like] uri target uri
       # @return [Boolean] true if exists
       def exist_file?(uri)
-        list_files(File.dirname(uri)).find{|_file| File.fnmatch(@file, _file)}
+        file = File.basename(uri)
+        list_files(File.dirname(uri)).find{|_file| File.fnmatch(file, _file)}
       end
 
       # svn update
