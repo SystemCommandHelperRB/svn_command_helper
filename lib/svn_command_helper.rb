@@ -121,8 +121,8 @@ module SvnCommandHelper
         until File.exist?(exist_path)
           exist_path = File.dirname(exist_path)
         end
-        root = Pathname.new(Svn.working_copy_root_path(exist_path)).realpath
-        end_path = Pathname.new(path.to_s).expand_path.realpath
+        root = Pathname.new(Svn.working_copy_root_path(exist_path))
+        end_path = Pathname.new(path.to_s).expand_path
         parents = [end_path]
         while parents.first != root
           parents.unshift(parents.first.parent)
