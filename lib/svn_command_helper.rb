@@ -178,13 +178,15 @@ module SvnCommandHelper
           sys "svn copy --parents #{only_from_transactions.map(&:from).join(' ')} #{transaction.to_base} -m '#{message}'"
         else
           Dir.mktmpdir do |dir|
-            sys "svn checkout --depth empty #{transaction.to_base} ."
-            sys "svn copy --parents #{only_from_transactions.map(&:from).join(' ')} ."
-            to_exist_transactions.each do |_transaction|
-              sys "svn update --set-depth infinity #{_transaction.file}"
-              sys "svn merge --accept theirs-full #{_transaction.from} #{_transaction.file}"
+            Dir.chdir(dir) do
+              sys "svn checkout --depth empty #{transaction.to_base} ."
+              sys "svn copy --parents #{only_from_transactions.map(&:from).join(' ')} ."
+              to_exist_transactions.each do |_transaction|
+                sys "svn update --set-depth infinity #{_transaction.file}"
+                sys "svn merge --accept theirs-full #{_transaction.from} #{_transaction.file}"
+              end
+              Svn.commit(message, ".")
             end
-            Svn.commit(message, ".")
           end
         end
       end
@@ -197,19 +199,21 @@ module SvnCommandHelper
         transactions.each do |transaction|
           raise "copy_multi: #{transaction.from} not exists" unless transaction.from_exist?
         end
-        Dir.tmpdir do |dir|
-          sys "svn checkout --depth empty #{base_uri} ."
-          transactions.each do |transaction|
-            relative_to = transaction.relative_to(base_uri)
-            Svn.update_deep(relative_to, "empty") # mkpath的な なくてもエラーにはならないので
+        Dir.mktmpdir do |dir|
+          Dir.chdir(dir) do
+            sys "svn checkout --depth empty #{base_uri} ."
+            transactions.each do |transaction|
+              relative_to = transaction.relative_to(base_uri)
+              Svn.update_deep(relative_to, "empty") # mkpath的な なくてもエラーにはならないので
 
-            if transaction.to_exist?  # toがある場合マージ
-              sys "svn merge --accept theirs-full #{transaction.from} #{relative_to}"
-            else # toがない場合コピー
-              sys "svn copy --parents #{transaction.from} #{relative_to}"
+              if transaction.to_exist?  # toがある場合マージ
+                sys "svn merge --accept theirs-full #{transaction.from} #{relative_to}"
+              else # toがない場合コピー
+                sys "svn copy --parents #{transaction.from} #{relative_to}"
+              end
             end
+            Svn.commit(message, ".")
           end
-          Svn.commit(message, ".")
         end
       end
 
