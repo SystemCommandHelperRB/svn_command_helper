@@ -170,7 +170,7 @@ module SvnCommandHelper
       def copy_single(transaction, message)
         transactions = transaction.glob_transactions
         raise "copy_single: #{transaction.from} not exists" if transactions.empty?
-        to_exist_transactions = Svn.list_files(transaction.to_base).select do |_file|
+        to_exist_transactions = Svn.list_files(transaction.to_base).map do |_file|
           transactions.find {|_transaction| _transaction.file == _file}
         end.compact
         only_from_transactions = transactions - to_exist_transactions
