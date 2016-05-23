@@ -183,8 +183,8 @@ module SvnCommandHelper
               unless only_from_transactions.empty?
                 sys "svn copy --parents #{only_from_transactions.map(&:from).join(' ')} ."
               end
+              sys "svn update --set-depth infinity #{to_exist_transactions.map(&:file).join(' ')}"
               to_exist_transactions.each do |_transaction|
-                sys "svn update --set-depth infinity #{_transaction.file}"
                 sys "svn merge --accept theirs-full #{_transaction.from} #{_transaction.file}"
               end
               Svn.commit(message, ".")
