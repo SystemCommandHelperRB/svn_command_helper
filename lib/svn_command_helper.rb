@@ -2,6 +2,7 @@ require "svn_command_helper/version"
 require 'pathname'
 require 'yaml'
 require 'time'
+require 'tmpdir'
 require 'ostruct'
 require 'rexml/document'
 require "system_command_helper"
