@@ -192,7 +192,7 @@ module SvnCommandHelper
       # @param [Array<SvnFileCopyTransaction>] transactions from and to info list
       # @param [String] message commit message
       def copy_multi(transactions, message)
-        base_uri = base_uri_of(transactions.map(&:from_base) + trnsactions.map(&:to_base))
+        base_uri = base_uri_of(transactions.map(&:from_base) + transactions.map(&:to_base))
         transactions.each do |transaction|
           raise "copy_multi: #{transaction.from} not exists" unless transaction.from_exist?
         end
