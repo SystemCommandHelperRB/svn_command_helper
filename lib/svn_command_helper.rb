@@ -180,7 +180,9 @@ module SvnCommandHelper
           Dir.mktmpdir do |dir|
             Dir.chdir(dir) do
               sys "svn checkout --depth empty #{transaction.to_base} ."
-              sys "svn copy --parents #{only_from_transactions.map(&:from).join(' ')} ."
+              unless only_from_transactions.empty?
+                sys "svn copy --parents #{only_from_transactions.map(&:from).join(' ')} ."
+              end
               to_exist_transactions.each do |_transaction|
                 sys "svn update --set-depth infinity #{_transaction.file}"
                 sys "svn merge --accept theirs-full #{_transaction.from} #{_transaction.file}"
@@ -311,7 +313,7 @@ module SvnCommandHelper
     # relative to path from given base uri
     # @return [String] relative to path
     def relative_to(path)
-      File.join(relative_from_to(path), @file)
+      File.join(relative_to_base(path), @file)
     end
   end
 end
