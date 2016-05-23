@@ -189,7 +189,7 @@ module SvnCommandHelper
               end
               sys "svn update --set-depth infinity #{to_exist_transactions.map(&:file).join(' ')}"
               to_exist_transactions.each do |_transaction|
-                sys "svn merge --accept theirs-full #{_transaction.from} #{_transaction.file}"
+                sys "svn merge --accept theirs-full --ignore-ancestry #{_transaction.from} #{_transaction.file}"
               end
               Svn.commit(message, ".")
             end
@@ -213,7 +213,7 @@ module SvnCommandHelper
               Svn.update_deep(relative_to, "empty") # mkpath的な なくてもエラーにはならないので
 
               if transaction.to_exist?  # toがある場合マージ
-                sys "svn merge --accept theirs-full #{transaction.from} #{relative_to}"
+                sys "svn merge --accept theirs-full --ignore-ancestry #{transaction.from} #{relative_to}"
               else # toがない場合コピー
                 sys "svn copy --parents #{transaction.from} #{relative_to}"
               end
