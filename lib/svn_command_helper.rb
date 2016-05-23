@@ -1,6 +1,9 @@
 require "svn_command_helper/version"
 require 'pathname'
 require 'yaml'
+require 'time'
+require 'ostruct'
+require 'rexml/document'
 require "system_command_helper"
 
 # Subversion command helper
@@ -76,6 +79,37 @@ module SvnCommandHelper
       # @param [depth] depth --set-depth
       def update(path = ".", depth = nil)
         sys "svn update #{depth ? "--set-depth #{depth}" : ""} #{path}"
+      end
+
+      # svn log
+      # @param [uri string like] uri target uri
+      # @param [Integer] limit --limit
+      # @param [Boolean] stop_on_copy --stop-on-copy
+      # @return [Array<OpenStruct>] log (old to new order)
+      def log(uri = ".", limit: nil, stop_on_copy: false)
+        log = cap "svn log --xml #{limit ? "--limit #{limit}" : ""} #{stop_on_copy ? "--stop-on-copy" : ""} #{uri}"
+        REXML::Document.new(log).elements.collect("/log/logentry") do |entry|
+          OpenStruct.new({
+            revision: entry.attribute("revision").value.to_i,
+            author: entry.elements["author"].text,
+            date: Time.iso8601(entry.elements["date"].text),
+            msg: entry.elements["msg"].text,
+          })
+        end.reverse
+      end
+
+      # head revision of uri
+      # @param [uri string like] uri target uri
+      # return [Integer] revision number
+      def revision(uri = ".")
+        log(uri, limit: 1).last.revision
+      end
+
+      # stop-on-copy revision of uri
+      # @param [uri string like] uri target uri
+      # return [Integer] revision number
+      def copied_revision(uri = ".")
+        log(uri, stop_on_copy: true).first.revision
       end
 
       # svn update to deep path recursive
