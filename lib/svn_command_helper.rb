@@ -117,7 +117,11 @@ module SvnCommandHelper
       # @param [path string like] path target path
       # @param [depth] depth --set-depth for only new updated dirs
       def update_deep(path, depth = nil)
-        root = Pathname.new(Svn.working_copy_root_path(path)).realpath
+        exist_path = path
+        until File.exist?(exist_path)
+          exist_path = File.dirname(exist_path)
+        end
+        root = Pathname.new(Svn.working_copy_root_path(exist_path)).realpath
         end_path = Pathname.new(path.to_s).expand_path.realpath
         parents = [end_path]
         while parents.first != root
