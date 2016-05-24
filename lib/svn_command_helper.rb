@@ -12,7 +12,7 @@ module SvnCommandHelper
   # Subversion native command and some utilities
   module Svn
     # module methods
-    module ModuleMethods
+    class << self
       include ::SystemCommandHelper
 
       # svn commit
@@ -244,8 +244,6 @@ module SvnCommandHelper
         end
       end
     end
-
-    extend ModuleMethods
   end
 
   # svn file copy transaction
