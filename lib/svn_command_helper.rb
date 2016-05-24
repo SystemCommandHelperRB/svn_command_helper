@@ -136,6 +136,47 @@ module SvnCommandHelper
         end
       end
 
+      # svn merge -r start_rev:end_rev from_uri to_path
+      # @param [Integer] start_rev start revision
+      # @param [Integer] end_rev end revision
+      # @param [String] from_uri from uri
+      # @param [String] to_path to local path
+      def merge1(start_rev, end_rev, from_uri, to_path = ".")
+        safe_merge "svn merge -r #{start_rev}:#{end_rev} #{from_uri} #{to_path}"
+      end
+
+      # merge after dry-run conflict check
+      # @param [String] command svn merge full command
+      def safe_merge(command)
+        dry_run = cap("#{command} --dry-run")
+        if dry_run.each_line.any? {|line| line.start_with?("C")}
+          raise "[ERROR] merge_branch_to_trunk: `#{command}` has conflict!\n#{dry_run}"
+        else
+          sys command
+        end
+      end
+
+      # svn merge branch to trunk with detecting revision range
+      # @param [String] from_uri from uri
+      # @param [String] to_path to local path
+      def merge_branch_to_trunk(from_uri, to_path = ".")
+        start_rev = copied_revision(from_uri)
+        end_rev = revision(from_uri)
+        merge1(start_rev, end_rev, from_uri, to_path)
+      end
+
+      # reverse merge single revision
+      # @param [Integer] start_rev start revision
+      # @param [Integer] end_rev end revision (if no end_rev then "-c start_rev")
+      # @param [String] path local path
+      def reverse_merge(start_rev, end_rev = nil, path = ".")
+        if end_rev
+          safe_merge "svn merge -r #{end_rev}:#{start_rev} #{path}"
+        else
+          safe_merge "svn merge -c #{start_rev} #{path}"
+        end
+      end
+
       # svn info -> yaml parse
       # @param [path string like] path target path
       # @return [Hash<String, String>] svn info contents
