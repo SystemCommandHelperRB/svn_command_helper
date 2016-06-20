@@ -253,7 +253,7 @@ module SvnCommandHelper
             sys "svn checkout --depth empty #{base_uri} ."
             transactions.each do |transaction|
               relative_to = transaction.relative_to(base_uri)
-              Svn.update_deep(relative_to, "empty") # mkpath的な なくてもエラーにはならないので
+              Svn.update_deep(relative_to, "empty", false) # mkpath的な なくてもエラーにはならないので
 
               if transaction.to_exist?  # toがある場合マージ
                 sys "svn export --force #{transaction.from} #{relative_to}"
