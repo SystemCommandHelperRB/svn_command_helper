@@ -213,8 +213,9 @@ module SvnCommandHelper
       # copy single transaction
       # @param [SvnFileCopyTransaction] transaction from and to info
       # @param [String] message commit message
-      def copy_single(transaction, message)
-        transactions = transaction.glob_transactions
+      # @param [Boolean] recursive list --recursive
+      def copy_single(transaction, message, recursive = false)
+        transactions = transaction.glob_transactions(recursive)
         raise "copy_single: #{transaction.from} not exists" if transactions.empty?
         to_exist_transactions = Svn.list_files(transaction.to_base).map do |_file|
           transactions.find {|_transaction| _transaction.file == _file}
@@ -320,9 +321,10 @@ module SvnCommandHelper
     end
 
     # filename glob (like "hoge*") to each single file transaction
+    # @param [Boolean] recursive list --recursive
     # @return [Array<SvnFileCopyTransaction>] transactions
-    def glob_transactions
-      Svn.list_files(@from_base)
+    def glob_transactions(recursive = false)
+      Svn.list_files(@from_base, recursive)
         .select{|_file| File.fnmatch(@file, _file)}
         .map{|_file| SvnFileCopyTransaction.new(from_base: @from_base, to_base: @to_base, file: _file)}
     end
