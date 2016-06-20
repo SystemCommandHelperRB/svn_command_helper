@@ -115,8 +115,9 @@ module SvnCommandHelper
 
       # svn update to deep path recursive
       # @param [path string like] path target path
-      # @param [depth] depth --set-depth for only new updated dirs
-      def update_deep(path, depth = nil)
+      # @param [Integer] depth --set-depth for only new updated dirs
+      # @param [Boolean] exist_path_update middle path update flag
+      def update_deep(path, depth = nil, exist_path_update = true)
         exist_path = path
         until File.exist?(exist_path)
           exist_path = File.dirname(exist_path)
@@ -129,7 +130,7 @@ module SvnCommandHelper
         end
         parents.each do |dir|
           if dir.exist?
-            sys "svn update #{dir}"
+            sys "svn update #{dir}" if exist_path_update
           else
             sys "svn update #{depth ? "--set-depth #{depth}" : ""} #{dir}"
           end
