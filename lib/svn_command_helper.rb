@@ -33,8 +33,14 @@ module SvnCommandHelper
       # @param [Boolean] recursive --recursive
       # @return [Array<String>] paths
       def list(uri, recursive = false)
-        cap("svn list #{recursive ? '-R' : ''} #{uri}").split(/\n/).compact
-          .reject {|path| path.empty?}
+        if @list_cache && @list_cache[uri]
+          @list_cache[uri]
+        else
+          list = cap("svn list #{recursive ? '-R' : ''} #{uri}").split(/\n/).compact
+            .reject {|path| path.empty?}
+          @list_cache[uri] = list if @list_cache
+          list
+        end
       end
 
       # svn list --recursive
@@ -57,6 +63,13 @@ module SvnCommandHelper
       # @return [Array<String>] file paths
       def list_files_recursive(uri)
         list_files(uri, true)
+      end
+
+      # svn list cache block
+      def list_cache(&block)
+        @list_cache = {}
+        block.call
+        @list_cache = nil
       end
 
       # check svn uri exists or not
