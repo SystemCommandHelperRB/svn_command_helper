@@ -253,10 +253,9 @@ module SvnCommandHelper
         options << "-x --ignore-eol-style" if ignore_eol_style
         options << "-x --ignore-space-change" if ignore_space_change
         options << "-x --ignore-all-space" if ignore_all_space
-        options << "| grep -v '^ '" if ignore_properties
 
-        diff = cap("svn diff --xml --summarize #{from_uri} #{to_uri} #{options.join(' ')}")
-        REXML::Document.new(diff).elements.collect("/diff/paths/path") do |path|
+        diff_str = cap("svn diff --xml --summarize #{from_uri} #{to_uri} #{options.join(' ')}")
+        diff_list = REXML::Document.new(diff_str).elements.collect("/diff/paths/path") do |path|
           OpenStruct.new({
             kind: path.attribute("kind").value,
             item: path.attribute("item").value,
@@ -264,6 +263,10 @@ module SvnCommandHelper
             path: path.text,
           })
         end
+        if ignore_properties
+          diff_list.reject! {|diff| diff.item == "none"}
+        end
+        diff_list
       end
 
       # copy single transaction
