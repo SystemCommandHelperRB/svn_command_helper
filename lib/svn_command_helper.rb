@@ -223,6 +223,43 @@ module SvnCommandHelper
         end.to_s
       end
 
+      # svn diff
+      # @param [String] from_uri from uri
+      # @param [String] to_uri to uri
+      # @param [Boolean] ignore_properties --ignore-properties
+      # @param [Boolean] ignore_eol_style -x --ignore-eol-style
+      # @param [Boolean] ignore_space_change -x --ignore-space-change
+      # @param [Boolean] ignore_all_space -x --ignore-all-space
+      # @return [String] raw diff str
+      def diff(from_uri, to_uri, ignore_properties: false, ignore_eol_style: false, ignore_space_change: false, ignore_all_space: false)
+        options = []
+        options << "-x --ignore-eol-style" if ignore_eol_style
+        options << "-x --ignore-space-change" if ignore_space_change
+        options << "-x --ignore-all-space" if ignore_all_space
+        options << "--ignore-properties" if ignore_properties
+        cap("svn diff #{from_uri} #{to_uri} #{options.join(' ')}")
+      end
+
+      # svn diff --summarize
+      # @param [String] from_uri from uri
+      # @param [String] to_uri to uri
+      # @param [Boolean] ignore_properties | grep -v '^ '
+      # @param [Boolean] ignore_eol_style -x --ignore-eol-style
+      # @param [Boolean] ignore_space_change -x --ignore-space-change
+      # @param [Boolean] ignore_all_space -x --ignore-all-space
+      # @return [Array] diff files list
+      def summarize_diff(from_uri, to_uri, ignore_properties: false, ignore_eol_style: false, ignore_space_change: false, ignore_all_space: false)
+        options = []
+        options << "-x --ignore-eol-style" if ignore_eol_style
+        options << "-x --ignore-space-change" if ignore_space_change
+        options << "-x --ignore-all-space" if ignore_all_space
+        options << "| grep -v '^ '" if ignore_properties
+        cap("svn diff --summarize #{from_uri} #{to_uri} #{options.join(' ')}")
+          .each_line.map(&:chomp)
+          .map {|line| line.match(/^(\s*\S+)\s+(\S.*)$/)}
+          .map {|result| OpenStruct.new({diff: result[1], file: result[2]})}
+      end
+
       # copy single transaction
       # @param [SvnFileCopyTransaction] transaction from and to info
       # @param [String] message commit message
