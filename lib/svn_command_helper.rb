@@ -254,10 +254,16 @@ module SvnCommandHelper
         options << "-x --ignore-space-change" if ignore_space_change
         options << "-x --ignore-all-space" if ignore_all_space
         options << "| grep -v '^ '" if ignore_properties
-        cap("svn diff --summarize #{from_uri} #{to_uri} #{options.join(' ')}")
-          .each_line.map(&:chomp)
-          .map {|line| line.match(/^(\s*\S+)\s+(\S.*)$/)}
-          .map {|result| OpenStruct.new({diff: result[1], file: result[2]})}
+
+        diff = cap("svn diff --xml --summarize #{from_uri} #{to_uri} #{options.join(' ')}")
+        REXML::Document.new(diff).elements.collect("/diff/paths/path") do |path|
+          OpenStruct.new({
+            kind: path.attribute("kind").value,
+            item: path.attribute("item").value,
+            props: path.attribute("props").value,
+            path: path.text,
+          })
+        end
       end
 
       # copy single transaction
