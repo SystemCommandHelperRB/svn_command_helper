@@ -256,8 +256,9 @@ module SvnCommandHelper
       # @param [Boolean] ignore_eol_style -x --ignore-eol-style
       # @param [Boolean] ignore_space_change -x --ignore-space-change
       # @param [Boolean] ignore_all_space -x --ignore-all-space
+      # @param [Boolean] with_list_info with svn list info
       # @return [Array] diff files list
-      def summarize_diff(from_uri, to_uri, ignore_properties: false, ignore_eol_style: false, ignore_space_change: false, ignore_all_space: false)
+      def summarize_diff(from_uri, to_uri, ignore_properties: false, ignore_eol_style: false, ignore_space_change: false, ignore_all_space: false, with_list_info: false)
         options = []
         options << "-x --ignore-eol-style" if ignore_eol_style
         options << "-x --ignore-space-change" if ignore_space_change
@@ -274,6 +275,18 @@ module SvnCommandHelper
         end
         if ignore_properties
           diff_list.reject! {|diff| diff.item == "none"}
+        end
+        if with_list_info
+          from_entries = Svn.list_recursive(from_uri)
+          to_entries = Svn.list_recursive(to_uri)
+          from_entries_hash = from_entries.each.with_object({}) {|file, entries_hash| entries_hash[file.path] = file}
+          to_entries_hash = to_entries.each.with_object({}) {|file, entries_hash| entries_hash[file.path] = file}
+          from_uri_path = Pathname.new(from_uri)
+          diff_list.each do |diff|
+            path = Pathname.new(diff.path).relative_path_from(from_uri_path).to_s
+            diff.from = from_entries_hash[path]
+            diff.to = to_entries_hash[path]
+          end
         end
         diff_list
       end
