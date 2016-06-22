@@ -36,8 +36,17 @@ module SvnCommandHelper
         if @list_cache && @list_cache[uri]
           @list_cache[uri]
         else
-          list = cap("svn list #{recursive ? '-R' : ''} #{uri}").split(/\n/).compact
-            .reject {|path| path.empty?}
+          list_str = cap("svn list --xml #{recursive ? '-R' : ''} #{uri}")
+          list = REXML::Document.new(list_str).elements.collect("/lists/list/entry") do |entry|
+            commit = entry.elements["commit"]
+            OpenStruct.new({
+              kind: entry.attribute("kind").value,
+              path: entry.elements["name"].text,
+              revision: commit.attribute("revision").value.to_i,
+              author: commit.elements["author"].text,
+              date: Time.iso8601(commit.elements["date"].text),
+            })
+          end
           @list_cache[uri] = list if @list_cache
           list
         end
@@ -55,7 +64,7 @@ module SvnCommandHelper
       # @param [Boolean] recursive --recursive
       # @return [Array<String>] file paths
       def list_files(uri, recursive = false)
-        list(uri, recursive).reject {|path| path.end_with?("/")} # dir
+        list(uri, recursive).select {|entry| entry.kind == "file"}
       end
 
       # svn list --recursive -> grep only files
@@ -77,7 +86,7 @@ module SvnCommandHelper
       # @return [Boolean] true if exists
       def exist?(uri)
         basename = File.basename(uri)
-        list(File.dirname(uri)).find{|_basename| File.fnmatch(basename, _basename.sub(/\/$/, ''))}
+        !list(File.dirname(uri)).find{|entry| File.fnmatch(basename, entry.path)}.nil?
       end
 
       # check svn uri file exists or not
@@ -85,7 +94,7 @@ module SvnCommandHelper
       # @return [Boolean] true if exists
       def exist_file?(uri)
         file = File.basename(uri)
-        list_files(File.dirname(uri)).find{|_file| File.fnmatch(file, _file)}
+        !list_files(File.dirname(uri)).find{|entry| File.fnmatch(file, entry.path)}.nil?
       end
 
       # svn update
@@ -276,8 +285,8 @@ module SvnCommandHelper
       def copy_single(transaction, message, recursive = false)
         transactions = transaction.glob_transactions(recursive)
         raise "copy_single: #{transaction.from} not exists" if transactions.empty?
-        to_exist_transactions = Svn.list_files(transaction.to_base).map do |_file|
-          transactions.find {|_transaction| _transaction.file == _file}
+        to_exist_transactions = Svn.list_files(transaction.to_base).map do |entry|
+          transactions.find {|_transaction| _transaction.file == entry.path}
         end.compact
         only_from_transactions = transactions - to_exist_transactions
         if to_exist_transactions.empty? # toにファイルがない
@@ -384,8 +393,8 @@ module SvnCommandHelper
     # @return [Array<SvnFileCopyTransaction>] transactions
     def glob_transactions(recursive = false)
       Svn.list_files(@from_base, recursive)
-        .select{|_file| File.fnmatch(@file, _file)}
-        .map{|_file| SvnFileCopyTransaction.new(from_base: @from_base, to_base: @to_base, file: _file)}
+        .select{|entry| File.fnmatch(@file, entry.path)}
+        .map{|entry| SvnFileCopyTransaction.new(from_base: @from_base, to_base: @to_base, file: entry.path)}
     end
 
     # from uri exists?
