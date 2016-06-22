@@ -33,8 +33,8 @@ module SvnCommandHelper
       # @param [Boolean] recursive --recursive
       # @return [Array<String>] paths
       def list(uri, recursive = false)
-        if @list_cache && @list_cache[uri]
-          @list_cache[uri]
+        if @list_cache && @list_cache[recursive][uri]
+          @list_cache[recursive][uri]
         else
           list_str = cap("svn list --xml #{recursive ? '-R' : ''} #{uri}")
           list = REXML::Document.new(list_str).elements.collect("/lists/list/entry") do |entry|
@@ -47,7 +47,7 @@ module SvnCommandHelper
               date: Time.iso8601(commit.elements["date"].text),
             })
           end
-          @list_cache[uri] = list if @list_cache
+          @list_cache[recursive][uri] = list if @list_cache
           list
         end
       end
@@ -76,7 +76,7 @@ module SvnCommandHelper
 
       # svn list cache block
       def list_cache(&block)
-        @list_cache = {}
+        @list_cache = {true => {}, false => {}}
         block.call
         @list_cache = nil
       end
