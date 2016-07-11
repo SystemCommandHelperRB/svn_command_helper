@@ -165,18 +165,46 @@ module SvnCommandHelper
       # @param [String] from_uri from uri
       # @param [String] to_path to local path
       def merge1(start_rev, end_rev, from_uri, to_path = ".")
-        safe_merge "svn merge -r #{start_rev}:#{end_rev} #{from_uri} #{to_path}"
+        safe_merge merge1_command(start_rev, end_rev, from_uri, to_path)
+      end
+
+      # svn merge -r start_rev:end_rev from_uri to_path --dry-run
+      # @param [Integer] start_rev start revision
+      # @param [Integer] end_rev end revision
+      # @param [String] from_uri from uri
+      # @param [String] to_path to local path
+      def merge1_dry_run(start_rev, end_rev, from_uri, to_path = ".")
+        merge_dry_run merge1_command(start_rev, end_rev, from_uri, to_path)
+      end
+
+      # "svn merge -r start_rev:end_rev from_uri to_path"
+      # @param [Integer] start_rev start revision
+      # @param [Integer] end_rev end revision
+      # @param [String] from_uri from uri
+      # @param [String] to_path to local path
+      # @param [Boolean] dry_run --dry-run
+      def merge1_command(start_rev, end_rev, from_uri, to_path = ".", dry_run: false)
+        "svn merge -r #{start_rev}:#{end_rev} #{from_uri} #{to_path} #{dry_run ? "--dry-run" : ""}"
       end
 
       # merge after dry-run conflict check
       # @param [String] command svn merge full command
       def safe_merge(command)
-        dry_run = cap("#{command} --dry-run")
-        if dry_run.each_line.any? {|line| line.start_with?("C")}
-          raise "[ERROR] merge_branch_to_trunk: `#{command}` has conflict!\n#{dry_run}"
+        dry_run = merge_dry_run(command)
+        if dry_run.any? {|entry| entry.status.include?("C")}
+          dry_run_str = dry_run.map {|entry| "#{entry.status} #{entry.path}"}.join("\n")
+          raise "[ERROR] merge_branch_to_trunk: `#{command}` has conflict!\n#{dry_run_str}"
         else
           sys command
         end
+      end
+
+      # merge dry-run conflict check result
+      # @param [String] command svn merge full command
+      def merge_dry_run(command)
+        cap("#{command} --dry-run")
+          .each_line.map(&:chomp).reject {|line| line.start_with?('-')}
+          .map {|line| OpenStruct.new({status: line[0...4], path: line[5..-1]})}
       end
 
       # svn merge branch to trunk with detecting revision range
