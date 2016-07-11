@@ -164,8 +164,9 @@ module SvnCommandHelper
       # @param [Integer] end_rev end revision
       # @param [String] from_uri from uri
       # @param [String] to_path to local path
-      def merge1(start_rev, end_rev, from_uri, to_path = ".")
-        safe_merge merge1_command(start_rev, end_rev, from_uri, to_path)
+      # @param [String] extra extra options
+      def merge1(start_rev, end_rev, from_uri, to_path = ".", extra = "")
+        safe_merge merge1_command(start_rev, end_rev, from_uri, to_path, extra)
       end
 
       # svn merge -r start_rev:end_rev from_uri to_path --dry-run
@@ -173,8 +174,9 @@ module SvnCommandHelper
       # @param [Integer] end_rev end revision
       # @param [String] from_uri from uri
       # @param [String] to_path to local path
-      def merge1_dry_run(start_rev, end_rev, from_uri, to_path = ".")
-        merge_dry_run merge1_command(start_rev, end_rev, from_uri, to_path)
+      # @param [String] extra extra options
+      def merge1_dry_run(start_rev, end_rev, from_uri, to_path = ".", extra = "")
+        merge_dry_run merge1_command(start_rev, end_rev, from_uri, to_path, extra)
       end
 
       # "svn merge -r start_rev:end_rev from_uri to_path"
@@ -182,9 +184,10 @@ module SvnCommandHelper
       # @param [Integer] end_rev end revision
       # @param [String] from_uri from uri
       # @param [String] to_path to local path
+      # @param [String] extra extra options
       # @param [Boolean] dry_run --dry-run
-      def merge1_command(start_rev, end_rev, from_uri, to_path = ".", dry_run: false)
-        "svn merge -r #{start_rev}:#{end_rev} #{from_uri} #{to_path} #{dry_run ? "--dry-run" : ""}"
+      def merge1_command(start_rev, end_rev, from_uri, to_path = ".", extra = "", dry_run: false)
+        "svn merge -r #{start_rev}:#{end_rev} #{from_uri} #{to_path} #{extra} #{dry_run ? "--dry-run" : ""}"
       end
 
       # merge after dry-run conflict check
@@ -203,7 +206,7 @@ module SvnCommandHelper
       # @param [String] command svn merge full command
       def merge_dry_run(command)
         cap("#{command} --dry-run")
-          .each_line.map(&:chomp).reject {|line| line.start_with?('-')}
+          .each_line.map(&:chomp).reject {|line| line[4] != " "}
           .map {|line| OpenStruct.new({status: line[0...4], path: line[5..-1]})}
       end
 
@@ -336,13 +339,17 @@ module SvnCommandHelper
           Dir.mktmpdir do |dir|
             Dir.chdir(dir) do
               sys "svn checkout --depth empty #{transaction.to_base} ."
+              # なくてもエラーにならないので全部update
+              sys "svn update --set-depth infinity #{transactions.map(&:file).join(' ')}"
               unless only_from_transactions.empty?
                 sys "svn copy --parents #{only_from_transactions.map(&:from).join(' ')} ."
               end
-              sys "svn update --set-depth infinity #{to_exist_transactions.map(&:file).join(' ')}"
               to_exist_transactions.each do |_transaction|
-                sys "svn export --force #{_transaction.from} #{_transaction.file}"
-                sys "svn add --force #{_transaction.file}"
+                begin
+                  Svn.merge1(1, "HEAD", _transaction.from, _transaction.file, "--accept theirs-full")
+                rescue
+                  sys "svn export --force #{_transaction.from} #{_transaction.file}"
+                end
               end
               Svn.commit(message, ".")
             end
