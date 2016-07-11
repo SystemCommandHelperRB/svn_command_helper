@@ -139,12 +139,13 @@ module SvnCommandHelper
       # @param [path string like] path target path
       # @param [Integer] depth --set-depth for only new updated dirs
       # @param [Boolean] exist_path_update middle path update flag
-      def update_deep(path, depth = nil, exist_path_update = true)
+      # @param [String] root working copy root path
+      def update_deep(path, depth = nil, exist_path_update = true, root: nil)
         exist_path = path
         until File.exist?(exist_path)
           exist_path = File.dirname(exist_path)
         end
-        root = Pathname.new(Svn.working_copy_root_path(exist_path))
+        root = Pathname.new(root || Svn.working_copy_root_path(exist_path))
         end_path = Pathname.new(path.to_s).expand_path
         parents = [end_path]
         while parents.first != root
@@ -368,15 +369,19 @@ module SvnCommandHelper
         Dir.mktmpdir do |dir|
           Dir.chdir(dir) do
             sys "svn checkout --depth empty #{base_uri} ."
+            root = Svn.working_copy_root_path(".")
             transactions.each do |transaction|
               relative_to = transaction.relative_to(base_uri)
 
               if transaction.to_exist?  # toがある場合マージ
-                Svn.update_deep(relative_to, "empty", false)
-                sys "svn export --force #{transaction.from} #{relative_to}"
-                sys "svn add --force #{relative_to}"
+                Svn.update_deep(relative_to, "empty", false, root: root)
+                begin
+                  Svn.merge1(1, "HEAD", transaction.from, relative_to, "--accept theirs-full")
+                rescue
+                  sys "svn export --force #{transaction.from} #{relative_to}"
+                end
               else # toがない場合コピー
-                Svn.update_deep(File.dirname(relative_to), "empty", false) # mkpath的な なくてもエラーにはならないので
+                Svn.update_deep(File.dirname(relative_to), "empty", false, root: root) # mkpath的な なくてもエラーにはならないので
                 sys "svn copy --parents #{transaction.from} #{relative_to}"
               end
             end
