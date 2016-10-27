@@ -4,7 +4,7 @@ require 'yaml'
 require 'time'
 require 'tmpdir'
 require 'ostruct'
-require 'rexml/document'
+require 'libxml'
 require "system_command_helper"
 
 # Subversion command helper
@@ -37,14 +37,14 @@ module SvnCommandHelper
           @list_cache[recursive][uri]
         else
           list_str = cap("svn list --xml #{recursive ? '-R' : ''} #{uri}")
-          list = REXML::Document.new(list_str).elements.collect("/lists/list/entry") do |entry|
-            commit = entry.elements["commit"]
+          list = LibXML::XML::Document.string(list_str).find("//lists/list/entry").map do |entry|
+            commit = entry.find_first("commit")
             OpenStruct.new({
-              kind: entry.attribute("kind").value,
-              path: entry.elements["name"].text,
-              revision: commit.attribute("revision").value.to_i,
-              author: commit.elements["author"].text,
-              date: Time.iso8601(commit.elements["date"].text),
+              kind: entry["kind"],
+              path: entry.find_first("name").content,
+              revision: commit["revision"].to_i,
+              author: commit.find_first("author").content,
+              date: Time.iso8601(commit.find_first("date").content),
             })
           end
           @list_cache[recursive][uri] = list if @list_cache
