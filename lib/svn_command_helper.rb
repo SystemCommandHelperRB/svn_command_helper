@@ -3,7 +3,6 @@ require 'pathname'
 require 'yaml'
 require 'time'
 require 'tmpdir'
-require 'ostruct'
 require 'libxml'
 require "system_command_helper"
 
@@ -31,7 +30,7 @@ module SvnCommandHelper
       # svn list
       # @param [uri string like] uri target uri
       # @param [Boolean] recursive --recursive
-      # @return [Array<String>] paths
+      # @return [Array<ListItem>] paths
       def list(uri, recursive = false)
         if @list_cache && @list_cache[recursive][uri]
           @list_cache[recursive][uri]
@@ -39,16 +38,27 @@ module SvnCommandHelper
           list_str = cap("svn list --xml #{recursive ? '-R' : ''} #{uri}")
           list = LibXML::XML::Document.string(list_str).find("//lists/list/entry").map do |entry|
             commit = entry.find_first("commit")
-            OpenStruct.new({
+            ListItem.new(
               kind: entry["kind"],
               path: entry.find_first("name").content,
               revision: commit["revision"].to_i,
               author: commit.find_first("author").content,
-              date: Time.iso8601(commit.find_first("date").content),
-            })
+              date: Time.iso8601(commit.find_first("date").content)
+            )
           end
           @list_cache[recursive][uri] = list if @list_cache
           list
+        end
+      end
+
+      class ListItem
+        attr_reader :kind, :path, :revision, :author, :date
+        def initialize(kind:, path:, revision:, author:, date:)
+          @kind = kind
+          @path = path
+          @revision = revision
+          @author = author
+          @date = date
         end
       end
 
@@ -108,17 +118,27 @@ module SvnCommandHelper
       # @param [uri string like] uri target uri
       # @param [Integer] limit --limit
       # @param [Boolean] stop_on_copy --stop-on-copy
-      # @return [Array<OpenStruct>] log (old to new order)
+      # @return [Array<LogItem>] log (old to new order)
       def log(uri = ".", limit: nil, stop_on_copy: false)
         log = cap "svn log --xml #{limit ? "--limit #{limit}" : ""} #{stop_on_copy ? "--stop-on-copy" : ""} #{uri}"
         LibXML::XML::Document.string(log).find("//log/logentry").map do |entry|
-          OpenStruct.new({
+          LogItem.new(
             revision: entry["revision"].to_i,
             author: entry.find_first("author").content,
             date: Time.iso8601(entry.find_first("date").content),
-            msg: entry.find_first("msg").content,
-          })
+            msg: entry.find_first("msg").content
+          )
         end.reverse
+      end
+
+      class LogItem
+        attr_reader :revision, :author, :date, :msg
+        def initialize(revision:, author:, date:, msg:)
+          @revision = revision
+          @author = author
+          @date = date
+          @msg = msg
+        end
       end
 
       # head revision of uri
@@ -208,7 +228,15 @@ module SvnCommandHelper
       def merge_dry_run(command)
         cap("#{command} --dry-run")
           .each_line.map(&:chomp).reject {|line| line[4] != " "}
-          .map {|line| OpenStruct.new({status: line[0...4], path: line[5..-1]})}
+          .map {|line| MergeStatusItem.new(status: line[0...4], path: line[5..-1])}
+      end
+
+      class MergeStatusItem
+        attr_reader :status, :path
+        def initialize(status:, path:)
+          @status = status
+          @path = path
+        end
       end
 
       # svn merge branch to trunk with detecting revision range
@@ -298,12 +326,12 @@ module SvnCommandHelper
 
         diff_str = cap("svn diff --xml --summarize #{from_uri} #{to_uri} #{options.join(' ')}")
         diff_list = LibXML::XML::Document.string(diff_str).find("//diff/paths/path").map do |path|
-          OpenStruct.new({
+          DiffItem.new(
             kind: path["kind"],
             item: path["item"],
             props: path["props"],
-            path: path.content,
-          })
+            path: path.content
+          )
         end
         if ignore_properties
           diff_list.reject! {|diff| diff.item == "none"}
@@ -321,6 +349,17 @@ module SvnCommandHelper
           end
         end
         diff_list
+      end
+
+      class DiffItem
+        attr_reader :kind, :item, :props, :path
+        attr_accessor :from, :to
+        def initialize(kind:, item:, props:, path:)
+          @kind = kind
+          @item = item
+          @props = props
+          @path = path
+        end
       end
 
       # copy single transaction
