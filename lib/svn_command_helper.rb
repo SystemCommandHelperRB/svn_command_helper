@@ -111,12 +111,12 @@ module SvnCommandHelper
       # @return [Array<OpenStruct>] log (old to new order)
       def log(uri = ".", limit: nil, stop_on_copy: false)
         log = cap "svn log --xml #{limit ? "--limit #{limit}" : ""} #{stop_on_copy ? "--stop-on-copy" : ""} #{uri}"
-        REXML::Document.new(log).elements.collect("/log/logentry") do |entry|
+        LibXML::XML::Document.string(log).find("//log/logentry").map do |entry|
           OpenStruct.new({
-            revision: entry.attribute("revision").value.to_i,
-            author: entry.elements["author"].text,
-            date: Time.iso8601(entry.elements["date"].text),
-            msg: entry.elements["msg"].text,
+            revision: entry["revision"].to_i,
+            author: entry.find_first("author").content,
+            date: Time.iso8601(entry.find_first("date").content),
+            msg: entry.find_first("msg").content,
           })
         end.reverse
       end
@@ -297,12 +297,12 @@ module SvnCommandHelper
         options << "-x --ignore-all-space" if ignore_all_space
 
         diff_str = cap("svn diff --xml --summarize #{from_uri} #{to_uri} #{options.join(' ')}")
-        diff_list = REXML::Document.new(diff_str).elements.collect("/diff/paths/path") do |path|
+        diff_list = LibXML::XML::Document.string(diff_str).find("//diff/paths/path").map do |path|
           OpenStruct.new({
-            kind: path.attribute("kind").value,
-            item: path.attribute("item").value,
-            props: path.attribute("props").value,
-            path: path.text,
+            kind: path["kind"],
+            item: path["item"],
+            props: path["props"],
+            path: path.content,
           })
         end
         if ignore_properties
